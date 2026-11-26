@@ -1,0 +1,119 @@
+<!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Nuestra boda</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#eee6f0;color:#35273d;font:16px/1.6 system-ui}main,details{max-width:740px;margin:auto;background:#fffaf1}header,section,footer{text-align:center;padding:48px 24px}header{min-height:72vh;display:grid;align-content:center;justify-items:center;background:radial-gradient(ellipse at top left,#dbc6eb,transparent 58%),radial-gradient(ellipse at bottom right,#e9d8ef,transparent 55%)}h1,h2{font:italic 400 clamp(2rem,7vw,3.5rem) Georgia;margin:.3em 0;color:#745824}h1{font-size:clamp(3rem,10vw,6rem)}p{white-space:pre-line;margin:12px auto;max-width:44ch}.flower{color:#805a9b;font-size:2rem;letter-spacing:.35em}.tint,footer{background:#efe4f4}button,.button{display:inline-block;background:#65427d;color:white;border:0;border-radius:30px;padding:11px 20px;font:inherit;cursor:pointer;text-decoration:none;margin:5px}details{padding:18px 24px;background:white}summary{cursor:pointer;font-weight:bold}form{display:grid;gap:10px;margin-top:15px}label{display:grid;gap:4px}input,textarea{width:100%;padding:8px;font:inherit;border:1px solid #c8b8cd;border-radius:6px}img{display:block;width:100%;max-height:550px;object-fit:cover}[hidden]{display:none!important}ol{margin:auto;max-width:320px;text-align:left}strong{color:#65427d}#cuenta{font:1.4rem Georgia;color:#745824}
+</style>
+<details id="editor"><summary>Editar mi invitación</summary><form></form></details>
+<main><header><div class="flower" aria-hidden="true">❧ ✿ ❧</div><p>NUESTRA BODA</p><h1 id="nombres"></h1><p id="fecha"></p><a class="button" href="#bienvenida" id="abrir">Abrir invitación</a><button id="sonido" type="button" hidden>Reproducir música</button></header>
+<section id="bienvenida"><h2>Nos casamos</h2><p id="mensaje"></p></section>
+<img id="foto" alt="Foto de los novios" hidden>
+<section class="tint" id="familia" hidden><h2>Con nuestras familias</h2><p id="padres"></p><div id="grupo-testigos" hidden><strong>Testigos</strong><p id="testigos"></p></div></section>
+<section id="contador" hidden><h2>Solo falta…</h2><p id="cuenta"></p></section>
+<section class="tint" id="programa" hidden><h2>Itinerario</h2><ol></ol></section>
+<section id="recepcion" hidden><h2>Recepción</h2><strong id="local"></strong><p id="direccion"></p><a class="button" id="mapa" target="_blank" rel="noopener">Ver en Google Maps</a></section>
+<section class="tint" id="vestimenta-seccion" hidden><h2>Vestimenta</h2><p id="vestimenta"></p></section>
+<section id="regalos-seccion" hidden><h2>Regalos</h2><p id="regalos"></p></section>
+<section id="asistencia" hidden><h2>Confirma tu asistencia</h2><a class="button" id="rsvp" target="_blank" rel="noopener">Confirmar por WhatsApp</a></section>
+<footer><div class="flower" aria-hidden="true">❧</div><h2>¡Te esperamos!</h2></footer></main>
+<audio id="audio" loop preload="none"></audio><script id="config" type="application/json">{}</script>
+<script>
+const $=id=>document.getElementById(id);
+const form=document.querySelector('form');
+const fields=[
+  ['uno','Tu nombre'],['dos','Nombre de tu pareja'],['evento','Fecha y hora en Perú','datetime-local'],
+  ['mensaje','Mensaje de bienvenida','textarea'],['padres','Padres o familiares','textarea'],
+  ['testigos','Testigos','textarea'],['itinerario','Itinerario, una actividad por línea','textarea'],
+  ['local','Local de recepción'],['direccion','Dirección'],['mapa','Enlace de Google Maps','url'],
+  ['vestimenta','Vestimenta','textarea'],['regalos','Mensaje de regalos','textarea'],['tel','WhatsApp con código de país','tel']
+];
+let data=JSON.parse($('config').textContent);
+let fecha=NaN;
+const audio=$('audio');
+function put(id,value){$(id).textContent=value||''}
+function show(id,value){$(id).hidden=!value}
+function clock(){
+  if(!Number.isFinite(fecha))return;
+  const s=Math.max(0,Math.ceil((fecha-Date.now())/1000));
+  put('cuenta',Math.floor(s/86400)+' d · '+Math.floor(s/3600)%24+' h · '+Math.floor(s/60)%60+' min · '+s%60+' s');
+}
+function render(){
+  const names=[data.uno||'Tu nombre',data.dos||'Tu pareja'].join(' & ');
+  put('nombres',names);
+  put('mensaje',data.mensaje||'Queremos celebrar este día con las personas que más queremos.');
+  fecha=data.evento?Date.parse(data.evento+'-05:00'):NaN;
+  const valid=Number.isFinite(fecha);
+  put('fecha',valid?new Intl.DateTimeFormat('es-PE',{dateStyle:'full',timeStyle:'short',timeZone:'America/Lima'}).format(fecha):'');
+  show('contador',valid);clock();
+  for(const id of ['padres','testigos','local','direccion','vestimenta','regalos'])put(id,data[id]);
+  show('familia',data.padres||data.testigos);show('grupo-testigos',data.testigos);
+  const events=(data.itinerario||'').split('\n').filter(line=>line.trim());
+  document.querySelector('ol').replaceChildren(...events.map(line=>{
+    const li=document.createElement('li');li.textContent=line;return li;
+  }));
+  show('programa',events.length);
+  let map='';
+  try{const url=new URL(data.mapa);if(url.protocol==='https:')map=url.href}catch{}
+  if(!map&&data.direccion)map='https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(data.direccion);
+  $('mapa').href=map;show('mapa',map);show('recepcion',map||data.local);
+  show('vestimenta-seccion',data.vestimenta);show('regalos-seccion',data.regalos);
+  const tel=(data.tel||'').replace(/\D/g,'');
+  $('rsvp').href='https://wa.me/'+tel+'?text='+encodeURIComponent('Hola, '+names+'. Confirmo mi asistencia. Mi nombre es ');
+  show('asistencia',/^[1-9]\d{7,14}$/.test(tel));
+  if(data.foto)$('foto').src=data.foto;
+  show('foto',data.foto);
+  if(data.audio&&audio.getAttribute('src')!==data.audio)audio.src=data.audio;
+  show('sonido',data.audio);
+}
+function play(){if(data.audio)audio.play().catch(()=>put('sonido','Toca para reproducir música'))}
+$('abrir').onclick=play;
+$('sonido').onclick=()=>audio.paused?play():audio.pause();
+audio.onplay=()=>put('sonido','Pausar música');
+audio.onpause=()=>put('sonido','Reproducir música');
+function field(key,title,type='text'){
+  const label=document.createElement('label');
+  label.textContent=title;
+  const input=document.createElement(type==='textarea'?'textarea':'input');
+  input.name=key;if(type!=='textarea')input.type=type;
+  if(type!=='file')input.value=data[key]||'';
+  label.append(input);form.append(label);return input;
+}
+function read(file){return new Promise((resolve,reject)=>{
+  const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=reject;reader.readAsDataURL(file);
+})}
+function download(guests){
+  const copy=document.documentElement.cloneNode(true);
+  copy.querySelector('#config').textContent=JSON.stringify(data).replace(/</g,'\\u003c');
+  copy.querySelector('#audio').removeAttribute('src');
+  copy.querySelector('#foto').removeAttribute('src');
+  if(guests)copy.querySelector('#editor').remove();
+  else{copy.querySelector('#editor').removeAttribute('open');copy.querySelector('form').replaceChildren()}
+  const url=URL.createObjectURL(new Blob(['<!doctype html>\n',copy.outerHTML],{type:'text/html'}));
+  const link=document.createElement('a');link.href=url;link.download=guests?'index.html':'invitacion-editable.html';link.click();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+}
+if(form){
+  fields.forEach(args=>field(...args));
+  const photo=field('foto','Foto de pareja','file');photo.accept='image/*';
+  const music=field('audio','Canción en MP3','file');music.accept='.mp3,audio/mpeg';
+  const status=document.createElement('p');status.setAttribute('role','status');
+  for(const [key,label] of [['preview','Aplicar cambios'],['editor','Descargar copia editable'],['guests','Descargar para invitados']]){
+    const button=document.createElement('button');button.name='accion';button.value=key;button.textContent=label;form.append(button);
+  }
+  form.append(status);
+  form.onsubmit=async event=>{
+    event.preventDefault();
+    const buttons=[...form.querySelectorAll('button')];
+    buttons.forEach(button=>button.disabled=true);
+    try{
+      const next={...data};
+      for(const [key] of fields)next[key]=form.elements[key].value.trim();
+      for(const input of [photo,music])if(input.files.length)next[input.name]=await read(input.files[0]);
+      data=next;render();
+      const action=event.submitter?.value;
+      if(action==='editor'||action==='guests')download(action==='guests');
+      status.textContent=action==='preview'?'Cambios aplicados. Descarga una copia para conservarlos.':'Copia generada.';
+    }catch{status.textContent='No se pudo leer el archivo. Vuelve a seleccionarlo.'}
+    finally{buttons.forEach(button=>button.disabled=false)}
+  };
+}
+render();setInterval(clock,1000);
+</script></html>
